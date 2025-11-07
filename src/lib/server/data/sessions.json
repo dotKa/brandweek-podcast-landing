@@ -1,0 +1,46 @@
+[
+  {
+    "id": 1,
+    "day": 1,
+    "title": "The Art of Living: How to Live in Modern Times?",
+    "duration": 55,
+    "date": "12 Kasım, 2025",
+    "audioUrl": "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3",
+    "summary": "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam.",
+    "active": true,
+    "order": 1
+  },
+  {
+    "id": 4,
+    "day": 1,
+    "title": "Istanbul and the Olympics: A City's Vision, A Champion's Story",
+    "duration": 55,
+    "date": "12 Kasım, 2025",
+    "audioUrl": "https://qwe",
+    "summary": "",
+    "active": true,
+    "order": 3
+  },
+  {
+    "day": 1,
+    "title": "13",
+    "duration": 0,
+    "date": "13 Kasım, 2025",
+    "audioUrl": "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3",
+    "summary": "133",
+    "active": true,
+    "order": 2,
+    "id": 5
+  },
+  {
+    "day": 1,
+    "title": "Gluk",
+    "duration": 1110,
+    "date": "10 Çarşamba Şubat 1302",
+    "audioUrl": "https://s3.gridstudio.ai/app-gridstudio/bw-landing/2025/session-1762551725160.m4a",
+    "summary": "",
+    "active": true,
+    "order": 0,
+    "id": 6
+  }
+]
