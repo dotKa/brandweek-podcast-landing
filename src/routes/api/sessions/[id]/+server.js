@@ -4,13 +4,19 @@ import * as sessionsData from '$lib/server/data/sessions.js';
 /** @type {import('./$types').RequestHandler} */
 export async function GET({ params, locals }) {
 	try {
+		const cacheHeaders = {
+			'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+			'Pragma': 'no-cache',
+			'Expires': '0'
+		};
+
 		// Auth kontrolü (admin için)
 		if (locals.user) {
 			const session = sessionsData.getSessionById(params.id);
 			if (!session) {
 				error(404, 'Session not found');
 			}
-			return json(session);
+			return json(session, { headers: cacheHeaders });
 		}
 
 		// Public erişim - sadece aktif session'lar
@@ -18,7 +24,7 @@ export async function GET({ params, locals }) {
 		if (!session || !session.active) {
 			error(404, 'Session not found');
 		}
-		return json(session);
+		return json(session, { headers: cacheHeaders });
 	} catch (err) {
 		if (err.status) {
 			throw err;
@@ -43,7 +49,13 @@ export async function PUT({ params, request, locals }) {
 			error(404, 'Session not found');
 		}
 
-		return json(updatedSession);
+		return json(updatedSession, {
+			headers: {
+				'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+				'Pragma': 'no-cache',
+				'Expires': '0'
+			}
+		});
 	} catch (err) {
 		if (err.status) {
 			throw err;
@@ -67,7 +79,13 @@ export async function DELETE({ params, locals }) {
 			error(404, 'Session not found');
 		}
 
-		return json({ success: true });
+		return json({ success: true }, {
+			headers: {
+				'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+				'Pragma': 'no-cache',
+				'Expires': '0'
+			}
+		});
 	} catch (err) {
 		if (err.status) {
 			throw err;

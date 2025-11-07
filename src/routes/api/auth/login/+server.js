@@ -21,7 +21,13 @@ export async function POST({ request, cookies }) {
 				maxAge: 60 * 60 * 24 * 7 // 7 gün
 			});
 
-			return json({ success: true });
+			return json({ success: true }, {
+				headers: {
+					'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+					'Pragma': 'no-cache',
+					'Expires': '0'
+				}
+			});
 		} else {
 			error(401, 'Invalid credentials');
 		}

@@ -23,7 +23,13 @@ export async function POST({ request, locals }) {
 
 		console.log('[Upload] Upload successful:', fileUrl);
 
-		return json({ url: fileUrl });
+		return json({ url: fileUrl }, {
+			headers: {
+				'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+				'Pragma': 'no-cache',
+				'Expires': '0'
+			}
+		});
 	} catch (err) {
 		if (err.status) {
 			throw err;

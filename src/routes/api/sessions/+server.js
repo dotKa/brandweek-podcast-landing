@@ -18,7 +18,13 @@ export async function GET({ url }) {
 		// Sıralama
 		sessions.sort((a, b) => a.order - b.order);
 
-		return json(sessions);
+		return json(sessions, {
+			headers: {
+				'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+				'Pragma': 'no-cache',
+				'Expires': '0'
+			}
+		});
 	} catch (err) {
 		console.error('Error fetching sessions:', err);
 		error(500, 'Failed to fetch sessions');
@@ -51,7 +57,14 @@ export async function POST({ request, locals }) {
 			order: data.order || 0
 		});
 
-		return json(newSession, { status: 201 });
+		return json(newSession, {
+			status: 201,
+			headers: {
+				'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+				'Pragma': 'no-cache',
+				'Expires': '0'
+			}
+		});
 	} catch (err) {
 		if (err.status) {
 			throw err;
