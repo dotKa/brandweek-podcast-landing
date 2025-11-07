@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { createEventDispatcher } from 'svelte';
+  import { setActiveAudio, clearActiveAudio, activeAudioElement } from '$lib/stores/audioManager.js';
   
   let { audioUrl } = $props();
   
@@ -14,6 +15,9 @@
   
   const dispatch = createEventDispatcher();
   
+  // Diğer audio başlatıldığında bu audio'yu durdur
+  let unsubscribe;
+  
   function formatTime(seconds) {
     if (!seconds || isNaN(seconds)) return '00:00';
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -25,11 +29,14 @@
     if (!audioElement) return;
     
     if (audioElement.paused) {
+      // Diğer audio'ları durdur ve bu audio'yu aktif yap
+      setActiveAudio(audioElement);
       audioElement.play();
       isPlaying = true;
     } else {
       audioElement.pause();
       isPlaying = false;
+      clearActiveAudio(audioElement);
     }
   }
   
@@ -80,11 +87,35 @@
   }
   
   onMount(() => {
-    if (audioElement) {
+    // audioElement bind edildikten sonra event listener'ları ekle
+    const setupAudio = () => {
+      if (!audioElement) return;
+      
       audioElement.addEventListener('timeupdate', handleTimeUpdate);
       audioElement.addEventListener('loadedmetadata', handleLoadedMetadata);
-      audioElement.addEventListener('pause', () => { isPlaying = false; });
-      audioElement.addEventListener('play', () => { isPlaying = true; });
+      audioElement.addEventListener('pause', () => { 
+        isPlaying = false;
+        clearActiveAudio(audioElement);
+      });
+      audioElement.addEventListener('play', () => { 
+        isPlaying = true;
+        setActiveAudio(audioElement);
+      });
+      
+      // Diğer audio başlatıldığında bu audio'yu durdur
+      unsubscribe = activeAudioElement.subscribe((activeAudio) => {
+        if (activeAudio && activeAudio !== audioElement && audioElement && !audioElement.paused) {
+          audioElement.pause();
+          isPlaying = false;
+        }
+      });
+    };
+    
+    // Hemen dene, yoksa bir sonraki tick'te dene
+    if (audioElement) {
+      setupAudio();
+    } else {
+      setTimeout(setupAudio, 0);
     }
   });
   
@@ -93,6 +124,10 @@
       audioElement.removeEventListener('timeupdate', handleTimeUpdate);
       audioElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audioElement.pause();
+      clearActiveAudio(audioElement);
+    }
+    if (unsubscribe) {
+      unsubscribe();
     }
   });
 </script>
