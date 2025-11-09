@@ -8,31 +8,6 @@
 		<meta http-equiv="Pragma" content="no-cache" />
 		<meta http-equiv="Expires" content="0" />
 		%sveltekit.head%
-		
-		<script>
-			// Build version mismatch kontrolü - eski cache'lenmiş HTML'i tespit et
-			(function() {
-				const currentVersion = document.querySelector('meta[name="build-version"]')?.content;
-				const storedVersion = sessionStorage.getItem('build-version');
-				
-				if (storedVersion && currentVersion && storedVersion !== currentVersion) {
-					// Version değişmiş, tüm cache'i temizle ve sayfayı yenile
-					sessionStorage.clear();
-					localStorage.clear();
-					// Service worker varsa unregister et
-					if ('serviceWorker' in navigator) {
-						navigator.serviceWorker.getRegistrations().then(registrations => {
-							registrations.forEach(registration => registration.unregister());
-						});
-					}
-					// Hard reload yap (cache bypass)
-					window.location.reload();
-				} else if (currentVersion) {
-					// Version'ı kaydet
-					sessionStorage.setItem('build-version', currentVersion);
-				}
-			})();
-		</script>
 
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
