@@ -1,12 +1,14 @@
-import { readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const SESSIONS_FILE = join(__dirname, 'sessions.json');
+// Production'da /app/data/sessions.json, development'ta source içinde
+// Environment variable ile override edilebilir
+const SESSIONS_FILE = process.env.SESSIONS_FILE_PATH || 
+	(import.meta.env.PROD ? '/app/data/sessions.json' : join(__dirname, 'sessions.json'));
 
 /**
  * @typedef {Object} Session
@@ -39,7 +41,19 @@ export function getSessions() {
  */
 export function saveSessions(sessions) {
 	try {
-		writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), 'utf-8');
+		// Dosya yoksa dizini oluştur
+		const dir = dirname(SESSIONS_FILE);
+		try {
+			writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), 'utf-8');
+		} catch (dirError) {
+			// Dizin yoksa oluştur
+			if (dirError.code === 'ENOENT') {
+				mkdirSync(dir, { recursive: true });
+				writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), 'utf-8');
+			} else {
+				throw dirError;
+			}
+		}
 		return true;
 	} catch (error) {
 		console.error('Error saving sessions:', error);
