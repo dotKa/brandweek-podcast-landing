@@ -21,11 +21,20 @@ export async function handle({ event, resolve }) {
 
 	const response = await resolve(event);
 	
-	// Cache'i devre dışı bırak
-	response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+	// Cache'i tamamen devre dışı bırak - tüm olası cache mekanizmaları için
+	response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0');
 	response.headers.set('Pragma', 'no-cache');
 	response.headers.set('Expires', '0');
 	response.headers.set('Surrogate-Control', 'no-store');
+	
+	// Browser ve CDN cache'ini zorla invalidate etmek için
+	// Her request'te değişen bir değer (browser cache'ini zorla temizler)
+	response.headers.set('X-Cache-Bust', Date.now().toString());
+	
+	// ETag ve Last-Modified header'larını kaldır (eğer varsa)
+	// Bu header'lar browser'ın conditional request yapmasına neden olur
+	response.headers.delete('ETag');
+	response.headers.delete('Last-Modified');
 	
 	return response;
 }
