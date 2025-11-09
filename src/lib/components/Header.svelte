@@ -39,7 +39,7 @@
     border-left: 3px solid #e0e0e0;
   }
   .title {
-    font-weight: 500;
+    font-weight: 400;
     font-size: 40px;
     color: #1a1a1a;
     line-height: 1.3;
