@@ -42,6 +42,9 @@
 </div>
 
 <style>
-  .sessions { padding: 0 20px 40px; max-width: 425px; margin: auto; }
+  .sessions { padding: 0 20px 40px; max-width: 960px; margin: auto; }
+  @media (max-width: 768px) {
+    .sessions { padding: 0 20px 40px; max-width: 425px; margin: auto; }
+  }
 </style>
 
