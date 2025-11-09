@@ -1,8 +1,17 @@
 import { verifyToken } from '$lib/server/jwt';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
-// Build zamanını environment variable'dan al veya timestamp kullan
-// Her deploy'da değişen bir değer (build sırasında set edilebilir)
-const BUILD_VERSION = import.meta.env.BUILD_VERSION || Date.now().toString();
+// Build version'ını dosyadan oku (build sırasında oluşturulur)
+let BUILD_VERSION = '0';
+try {
+	const versionPath = resolve(process.cwd(), '.svelte-kit', 'build-version.json');
+	const versionData = JSON.parse(readFileSync(versionPath, 'utf-8'));
+	BUILD_VERSION = versionData.version || import.meta.env.BUILD_VERSION || Date.now().toString();
+} catch {
+	// Dosya yoksa environment variable veya timestamp kullan
+	BUILD_VERSION = import.meta.env.BUILD_VERSION || Date.now().toString();
+}
 
 /** @type {import('@sveltejs/kit').Handle} */
 export async function handle({ event, resolve }) {
@@ -24,30 +33,54 @@ export async function handle({ event, resolve }) {
 	}
 
 	const response = await resolve(event, {
-		transformPageChunk: ({ html }) => {
+		transformPageChunk: ({ html, done }) => {
 			// HTML'deki tüm script ve link tag'lerine cache busting query parameter ekle
-			// Bu, browser'ın eski cache'lenmiş dosyaları yüklemesini engeller
-			return html
-				.replace(
-					/(<script[^>]*src=["']([^"']+)["'][^>]*>)/gi,
-					(match, fullTag, src) => {
-						// Zaten query parameter varsa ekleme
-						if (src.includes('?')) {
-							return fullTag;
-						}
-						return fullTag.replace(src, `${src}?v=${BUILD_VERSION}`);
+			// Hash'li dosyalara bile version ekle (çift cache busting)
+			let transformed = html;
+			
+			// Script tag'leri için - hash'li olsa bile version ekle
+			transformed = transformed.replace(
+				/(<script[^>]*src=["']([^"']+)(\?[^"']*)?["'][^>]*>)/gi,
+				(match, fullTag, src, existingQuery) => {
+					// External script'leri atla
+					if (src.startsWith('http')) {
+						return fullTag;
 					}
-				)
-				.replace(
-					/(<link[^>]*href=["']([^"']+)["'][^>]*rel=["']stylesheet["'][^>]*>)/gi,
-					(match, fullTag, href) => {
-						// Zaten query parameter varsa ekleme
-						if (href.includes('?') || href.startsWith('http')) {
-							return fullTag;
-						}
-						return fullTag.replace(href, `${href}?v=${BUILD_VERSION}`);
+					// Zaten version query parameter varsa güncelle, yoksa ekle
+					if (existingQuery && existingQuery.includes('v=')) {
+						return fullTag.replace(/([?&])v=[^&]*/, `$1v=${BUILD_VERSION}`);
 					}
+					const separator = existingQuery ? '&' : '?';
+					return fullTag.replace(src + (existingQuery || ''), `${src}${existingQuery || ''}${separator}v=${BUILD_VERSION}`);
+				}
+			);
+			
+			// Link tag'leri için (CSS) - hash'li olsa bile version ekle
+			transformed = transformed.replace(
+				/(<link[^>]*href=["']([^"']+)(\?[^"']*)?["'][^>]*rel=["']stylesheet["'][^>]*>)/gi,
+				(match, fullTag, href, existingQuery) => {
+					// External link'leri atla
+					if (href.startsWith('http')) {
+						return fullTag;
+					}
+					// Zaten version query parameter varsa güncelle, yoksa ekle
+					if (existingQuery && existingQuery.includes('v=')) {
+						return fullTag.replace(/([?&])v=[^&]*/, `$1v=${BUILD_VERSION}`);
+					}
+					const separator = existingQuery ? '&' : '?';
+					return fullTag.replace(href + (existingQuery || ''), `${href}${existingQuery || ''}${separator}v=${BUILD_VERSION}`);
+				}
+			);
+			
+			// HTML'e version meta tag ekle (sadece son chunk'ta)
+			if (done && !transformed.includes('data-build-version')) {
+				transformed = transformed.replace(
+					/<head[^>]*>/i,
+					`$&<meta name="build-version" content="${BUILD_VERSION}" data-build-version="true">`
 				);
+			}
+			
+			return transformed;
 		}
 	});
 	
