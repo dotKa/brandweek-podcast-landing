@@ -64,6 +64,26 @@
     filterDay = 'all';
     filterActive = 'all';
   }
+  
+  async function handleLogout() {
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        // Logout başarılı, login sayfasına yönlendir
+        goto('/admin');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Hata olsa bile login sayfasına yönlendir
+      goto('/admin');
+    }
+  }
 </script>
 
 <svelte:head>
@@ -76,10 +96,19 @@
       <h1>Session Yönetimi</h1>
       <p class="subtitle">Toplam {sessions.length} session | Gösterilen: {filteredSessions.length}</p>
     </div>
-    <button class="create-btn" onclick={handleCreate}>
-      <span class="btn-icon">+</span>
-      Yeni Session Ekle
-    </button>
+    <div class="header-actions">
+      <button class="logout-btn" onclick={handleLogout}>
+        <svg class="btn-icon power-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+          <line x1="12" y1="2" x2="12" y2="12"></line>
+        </svg>
+        Çıkış Yap
+      </button>
+      <button class="create-btn" onclick={handleCreate}>
+        <span class="btn-icon">+</span>
+        Yeni Session Ekle
+      </button>
+    </div>
   </div>
   
   <div class="filters-bar">
@@ -203,6 +232,11 @@
     padding-bottom: 1.5rem;
     border-bottom: 2px solid #e0e0e0;
   }
+  .header-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
   h1 {
     margin: 0 0 0.5rem 0;
     font-size: 32px;
@@ -214,6 +248,25 @@
     font-size: 14px;
     color: #a1a1a1;
     font-weight: 400;
+  }
+  .logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.75rem;
+    background: #f5f5f5;
+    color: #1a1a1a;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .logout-btn:hover {
+    background: #e0e0e0;
+    border-color: #d0d0d0;
+    transform: translateY(-1px);
   }
   .create-btn {
     display: flex;
@@ -238,6 +291,11 @@
   .btn-icon {
     font-size: 20px;
     line-height: 1;
+  }
+  .power-icon {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
   }
   .filters-bar {
     background: white;
@@ -504,6 +562,11 @@
       flex-direction: column;
       gap: 1rem;
     }
+    .header-actions {
+      width: 100%;
+      flex-direction: column;
+    }
+    .logout-btn,
     .create-btn {
       width: 100%;
       justify-content: center;
