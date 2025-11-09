@@ -1,5 +1,6 @@
 import { redirect, fail } from '@sveltejs/kit';
 import { ADMIN_USER, ADMIN_PASSWORD } from '$env/static/private';
+import { createToken } from '$lib/server/jwt';
 
 /** @type {import('./$types').PageServerLoad} */
 export async function load({ locals }) {
@@ -21,11 +22,15 @@ export const actions = {
 		}
 
 		if (username === ADMIN_USER && password === ADMIN_PASSWORD) {
-			cookies.set('sessionid', 'authenticated', {
+			// JWT token oluştur
+			const token = await createToken();
+
+			// JWT token'ı cookie'ye set et
+			cookies.set('sessionid', token, {
 				path: '/',
 				httpOnly: true,
 				sameSite: 'strict',
-				secure: process.env.NODE_ENV === 'production',
+				secure: import.meta.env.PROD,
 				maxAge: 60 * 60 * 24 * 7 // 7 gün
 			});
 

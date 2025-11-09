@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { ADMIN_USER, ADMIN_PASSWORD } from '$env/static/private';
+import { createToken } from '$lib/server/jwt';
 
 /** @type {import('./$types').RequestHandler} */
 export async function POST({ request, cookies }) {
@@ -12,12 +13,15 @@ export async function POST({ request, cookies }) {
 		}
 
 		if (username === ADMIN_USER && password === ADMIN_PASSWORD) {
-			// Session cookie set et
-			cookies.set('sessionid', 'authenticated', {
+			// JWT token oluştur
+			const token = await createToken();
+
+			// JWT token'ı cookie'ye set et
+			cookies.set('sessionid', token, {
 				path: '/',
 				httpOnly: true,
 				sameSite: 'strict',
-				secure: process.env.NODE_ENV === 'production',
+				secure: import.meta.env.PROD,
 				maxAge: 60 * 60 * 24 * 7 // 7 gün
 			});
 
@@ -32,7 +36,7 @@ export async function POST({ request, cookies }) {
 			error(401, 'Invalid credentials');
 		}
 	} catch (err) {
-		if (err.status) {
+		if (err && typeof err === 'object' && 'status' in err) {
 			throw err;
 		}
 		error(500, 'Internal server error');

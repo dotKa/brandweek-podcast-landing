@@ -1,11 +1,20 @@
+import { verifyToken } from '$lib/server/jwt';
+
 /** @type {import('@sveltejs/kit').Handle} */
 export async function handle({ event, resolve }) {
-	const sessionId = event.cookies.get('sessionid');
+	const token = event.cookies.get('sessionid');
 
-	if (sessionId) {
-		// Basit session kontrolü - cookie varsa ve doğruysa user = true
-		// Gerçek uygulamada daha güvenli bir yöntem kullanılmalı
-		event.locals.user = true;
+	if (token) {
+		// JWT token'ı verify et
+		const result = await verifyToken(token);
+
+		if (result && result.payload.authenticated === true) {
+			event.locals.user = true;
+		} else {
+			// Token geçersiz veya expire olmuş, cookie'yi temizle
+			event.cookies.delete('sessionid', { path: '/' });
+			event.locals.user = null;
+		}
 	} else {
 		event.locals.user = null;
 	}
