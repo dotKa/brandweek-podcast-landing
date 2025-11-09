@@ -8,6 +8,7 @@
   let searchQuery = $state('');
   let filterDay = $state('all');
   let filterActive = $state('all');
+  let sortBy = $state('order');
   
   // Data değiştiğinde sessions'ı güncelle
   $effect(() => {
@@ -56,6 +57,49 @@
       result = result.filter(s => s.active === isActive);
     }
     
+    // Sıralama
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'order':
+          const orderA = a.order ?? 0;
+          const orderB = b.order ?? 0;
+          return orderA - orderB;
+        
+        case 'title-asc':
+          const titleA = (a.title || '').toLowerCase();
+          const titleB = (b.title || '').toLowerCase();
+          return titleA.localeCompare(titleB);
+        
+        case 'title-desc':
+          const titleADesc = (a.title || '').toLowerCase();
+          const titleBDesc = (b.title || '').toLowerCase();
+          return titleBDesc.localeCompare(titleADesc);
+        
+        case 'id-asc':
+          return (a.id ?? 0) - (b.id ?? 0);
+        
+        case 'id-desc':
+          return (b.id ?? 0) - (a.id ?? 0);
+        
+        case 'day-asc':
+          const dayA = a.day ?? 0;
+          const dayB = b.day ?? 0;
+          if (dayA !== dayB) return dayA - dayB;
+          // Aynı gün içinde order'a göre sırala
+          return (a.order ?? 0) - (b.order ?? 0);
+        
+        case 'day-desc':
+          const dayADesc = a.day ?? 0;
+          const dayBDesc = b.day ?? 0;
+          if (dayADesc !== dayBDesc) return dayBDesc - dayADesc;
+          // Aynı gün içinde order'a göre sırala
+          return (a.order ?? 0) - (b.order ?? 0);
+        
+        default:
+          return 0;
+      }
+    });
+    
     return result;
   });
   
@@ -63,6 +107,7 @@
     searchQuery = '';
     filterDay = 'all';
     filterActive = 'all';
+    sortBy = 'order';
   }
   
   async function handleLogout() {
@@ -138,7 +183,15 @@
         <option value="inactive">Pasif</option>
       </select>
       
-      {#if searchQuery || filterDay !== 'all' || filterActive !== 'all'}
+      <select bind:value={sortBy} class="filter-select">
+        <option value="order">Sıralama: Order</option>
+        <option value="title-asc">Sıralama: Başlık (A-Z)</option>
+        <option value="title-desc">Sıralama: Başlık (Z-A)</option>
+        <option value="id-asc">Sıralama: ID (Küçük→Büyük)</option>
+        <option value="id-desc">Sıralama: ID (Büyük→Küçük)</option>
+      </select>
+      
+      {#if searchQuery || filterDay !== 'all' || filterActive !== 'all' || sortBy !== 'order'}
         <button class="clear-filters-btn" onclick={clearFilters}>
           Filtreleri Temizle
         </button>

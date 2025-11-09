@@ -17,12 +17,29 @@
   
   // Diğer audio başlatıldığında bu audio'yu durdur
   let unsubscribe;
+  let durationCheckInterval;
   
   function formatTime(seconds) {
     if (!seconds || isNaN(seconds)) return '00:00';
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
     const s = Math.floor(seconds % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
+  }
+  
+  function updateDuration() {
+    if (!audioElement) return;
+    const newDuration = audioElement.duration;
+    if (newDuration && !isNaN(newDuration) && isFinite(newDuration) && newDuration > 0) {
+      if (duration !== newDuration) {
+        duration = newDuration;
+        if (durationText) {
+          durationText.textContent = formatTime(duration);
+        }
+        // Duration'ı parent component'e gönder (dakika cinsinden)
+        const durationInMinutes = Math.round(duration / 60);
+        dispatch('duration', durationInMinutes);
+      }
+    }
   }
   
   function togglePlay() {
@@ -33,6 +50,8 @@
       setActiveAudio(audioElement);
       audioElement.play();
       isPlaying = true;
+      // Oynatma başladığında duration'ı tekrar kontrol et
+      updateDuration();
     } else {
       audioElement.pause();
       isPlaying = false;
@@ -47,7 +66,8 @@
   
   function jumpForward() {
     if (!audioElement) return;
-    audioElement.currentTime = Math.min(audioElement.duration, audioElement.currentTime + 10);
+    const maxTime = audioElement.duration || duration || 0;
+    audioElement.currentTime = Math.min(maxTime, audioElement.currentTime + 10);
   }
   
   function handleProgressClick(e) {
@@ -56,8 +76,10 @@
     const rect = progressBar.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const percentage = x / rect.width;
-    if (duration > 0) {
-      audioElement.currentTime = percentage * duration;
+    // audioElement.duration kullan (state'den daha güvenilir)
+    const audioDuration = audioElement.duration || duration;
+    if (audioDuration > 0 && !isNaN(audioDuration) && isFinite(audioDuration)) {
+      audioElement.currentTime = percentage * audioDuration;
     }
   }
   
@@ -67,23 +89,31 @@
     if (currentTimeText) {
       currentTimeText.textContent = formatTime(currentTime);
     }
-    if (progressFillElement && duration > 0) {
-      const progress = (currentTime / duration) * 100;
+    // Duration'ı periyodik olarak kontrol et (m4a dosyaları için)
+    if (!duration || duration === 0) {
+      updateDuration();
+    }
+    const audioDuration = audioElement.duration || duration;
+    if (progressFillElement && audioDuration > 0) {
+      const progress = (currentTime / audioDuration) * 100;
       progressFillElement.style.width = `${progress}%`;
     }
   }
   
   function handleLoadedMetadata() {
-    if (!audioElement) return;
-    duration = audioElement.duration;
-    if (durationText) {
-      durationText.textContent = formatTime(duration);
-    }
-    // Duration'ı parent component'e gönder (dakika cinsinden)
-    if (duration && !isNaN(duration)) {
-      const durationInMinutes = Math.round(duration / 60);
-      dispatch('duration', durationInMinutes);
-    }
+    updateDuration();
+  }
+  
+  function handleDurationChange() {
+    updateDuration();
+  }
+  
+  function handleLoadedData() {
+    updateDuration();
+  }
+  
+  function handleCanPlay() {
+    updateDuration();
   }
   
   onMount(() => {
@@ -91,8 +121,12 @@
     const setupAudio = () => {
       if (!audioElement) return;
       
+      // M4a dosyaları için tüm duration event'lerini dinle
       audioElement.addEventListener('timeupdate', handleTimeUpdate);
       audioElement.addEventListener('loadedmetadata', handleLoadedMetadata);
+      audioElement.addEventListener('durationchange', handleDurationChange);
+      audioElement.addEventListener('loadeddata', handleLoadedData);
+      audioElement.addEventListener('canplay', handleCanPlay);
       audioElement.addEventListener('pause', () => { 
         isPlaying = false;
         clearActiveAudio(audioElement);
@@ -100,7 +134,21 @@
       audioElement.addEventListener('play', () => { 
         isPlaying = true;
         setActiveAudio(audioElement);
+        // Oynatma başladığında duration'ı kontrol et
+        updateDuration();
       });
+      
+      // M4a dosyaları için fallback: periyodik olarak duration kontrol et
+      durationCheckInterval = setInterval(() => {
+        if (audioElement && (!duration || duration === 0)) {
+          updateDuration();
+        }
+      }, 500);
+      
+      // İlk yüklemede duration'ı kontrol et
+      if (audioElement.readyState >= 1) {
+        updateDuration();
+      }
       
       // Diğer audio başlatıldığında bu audio'yu durdur
       unsubscribe = activeAudioElement.subscribe((activeAudio) => {
@@ -120,9 +168,15 @@
   });
   
   onDestroy(() => {
+    if (durationCheckInterval) {
+      clearInterval(durationCheckInterval);
+    }
     if (audioElement) {
       audioElement.removeEventListener('timeupdate', handleTimeUpdate);
       audioElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audioElement.removeEventListener('durationchange', handleDurationChange);
+      audioElement.removeEventListener('loadeddata', handleLoadedData);
+      audioElement.removeEventListener('canplay', handleCanPlay);
       audioElement.pause();
       clearActiveAudio(audioElement);
     }
@@ -133,7 +187,7 @@
 </script>
 
   <div class="player">
-  <audio bind:this={audioElement} src={audioUrl}></audio>
+  <audio bind:this={audioElement} src={audioUrl} preload="metadata"></audio>
   <div class="progress-bar" on:click={handleProgressClick}>
     <div class="progress-fill" bind:this={progressFillElement}></div>
   </div>
