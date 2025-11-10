@@ -74,7 +74,7 @@
     {#if session.summary}
       <div class="summary">
         <strong>Oturum Özeti:</strong>
-        {session.summary}
+        <div class="summary-text">{session.summary}</div>
       </div>
     {/if}
   </div>
@@ -132,23 +132,18 @@
     font-size: 20px;
     flex-shrink: 0;
   }
-  @media (max-width: 768px) {
-  .session-number {
-    height: 56px;
-    }
-  }
   .session-info {
     flex-grow: 1;
     margin: 0 14px;
   }
   .session-title {
-    font-size: 14px;
+    font-size: 18px;
     font-weight: 600;
     color: #1a1a1a;
     line-height: 1.4;
   }
   .session-meta {
-    font-size: 12px;
+    font-size: 16px;
     color: #a1a1a1;
     margin-top: 2px;
     font-weight: 400;
@@ -216,7 +211,7 @@
     object-fit: cover;
   }
   .summary {
-    font-size: 15px;
+    font-size: 18px;
     color: #1a1a1a;
     line-height: 25px;
     margin-top: 16px;
@@ -224,9 +219,32 @@
   }
   .summary strong {
     font-weight: 600;
+    display: block;
+    margin-bottom: 8px;
+  }
+  .summary-text {
+    white-space: pre-line;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
   .separator {
     margin: 0 4px;
     color: #a1a1a1;
+  }
+
+  @media (max-width: 768px) {
+  .session-number {
+    height: 56px;
+    }
+    .session-title {
+    font-size: 14px;
+  }
+  .session-meta {
+    font-size: 12px;
+  }
+  .summary {
+    font-size: 15px;
+  }
+
   }
 </style>
