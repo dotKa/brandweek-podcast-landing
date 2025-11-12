@@ -71,6 +71,16 @@
     {#if session.audioUrl}
       <AudioPlayer audioUrl={session.audioUrl} on:duration={handleDuration} />
     {/if}
+    {#if session.speakers && session.speakers.length > 0}
+      <div class="speakers">
+        <strong>{session.speakers.length === 1 ? 'Konuşmacı:' : 'Konuşmacılar:'}</strong>
+        <div class="speakers-list">
+          {#each session.speakers as speaker}
+            <span class="speaker-name">{speaker}</span>
+          {/each}
+        </div>
+      </div>
+    {/if}
     {#if session.summary}
       <div class="summary">
         <strong>Oturum Özeti:</strong>
@@ -229,6 +239,33 @@
     white-space: pre-line;
     word-wrap: break-word;
     overflow-wrap: break-word;
+  }
+  .speakers {
+    font-size: 18px;
+    color: #1a1a1a;
+    line-height: 25px;
+    margin-bottom: 16px;
+    font-weight: 400;
+  }
+  .speakers strong {
+    font-weight: 600;
+    display: block;
+    margin-bottom: 8px;
+    font-size: 18px;
+  }
+  .speakers-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .speaker-name {
+    display: inline-block;
+    padding: 3px 10px;
+    background: #f5f5f5;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
   }
   .separator {
     margin: 0 4px;

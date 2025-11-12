@@ -21,6 +21,7 @@ const SESSIONS_FILE = process.env.SESSIONS_FILE_PATH ||
  * @property {string} summary
  * @property {boolean} active
  * @property {number} order
+ * @property {string[]} [speakers]
  */
 
 /**

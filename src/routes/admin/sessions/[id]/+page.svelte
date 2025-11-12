@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { enhance } from '$app/forms';
   import { goto } from '$app/navigation';
   
@@ -6,7 +6,8 @@
   
   let session = $state(data.session ? { 
     ...data.session,
-    day: String(data.session.day) || '1'
+    day: String(data.session.day) || '1',
+    speakers: Array.isArray(data.session.speakers) ? data.session.speakers : []
   } : {
     day: '1',
     title: '',
@@ -15,8 +16,35 @@
     audioUrl: '',
     summary: '',
     active: true,
-    order: 0
+    order: 0,
+    speakers: [] as string[]
   });
+  
+  // speakers'ı her zaman array olarak garanti et
+  if (!Array.isArray(session.speakers)) {
+    session.speakers = [];
+  }
+  
+  let speakersInput = $state('');
+  
+  function addSpeaker() {
+    const trimmed = speakersInput.trim();
+    if (trimmed && !session.speakers.includes(trimmed)) {
+      session.speakers = [...session.speakers, trimmed];
+      speakersInput = '';
+    }
+  }
+  
+  function removeSpeaker(index: number) {
+    session.speakers = session.speakers.filter((_, i) => i !== index);
+  }
+  
+  function handleSpeakerKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addSpeaker();
+    }
+  }
   
   let isNew = data.isNew;
   let uploading = $state(false);
@@ -32,7 +60,7 @@
   /**
    * Dosyayı 5 MB'lık chunklara böl (S3 minimum part size)
    */
-  function splitFileIntoChunks(file, chunkSize = 5 * 1024 * 1024) {
+  function splitFileIntoChunks(file: File, chunkSize = 5 * 1024 * 1024) {
     const chunks = [];
     let offset = 0;
     let chunkNumber = 1;
@@ -50,7 +78,7 @@
   /**
    * Chunk'ı base64'e çevir
    */
-  function chunkToBase64(chunk) {
+  function chunkToBase64(chunk: Blob) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -69,8 +97,8 @@
   /**
    * @param {Event} event
    */
-  async function handleFileUpload(event) {
-    const target = /** @type {HTMLInputElement} */ (event.target);
+  async function handleFileUpload(event: Event) {
+    const target = event.target as HTMLInputElement;
     const file = target?.files?.[0];
     if (!file) return;
     
@@ -297,6 +325,9 @@
   {/if}
   
   <form method="POST" action="?/save" use:enhance class="session-form">
+    {#each session.speakers as speaker}
+      <input type="hidden" name="speakers" value={speaker} />
+    {/each}
     <div class="form-section">
       <h2 class="section-title">Temel Bilgiler</h2>
       <div class="form-grid">
@@ -331,6 +362,34 @@
           placeholder="Session başlığını girin"
           required 
         />
+      </div>
+      
+      <div class="form-group">
+        <label for="speakers">Konuşmacılar</label>
+        <div class="speakers-input-group">
+          <input 
+            type="text" 
+            id="speakers" 
+            name="speakers" 
+            bind:value={speakersInput}
+            placeholder="Konuşmacı adını girin"
+            onkeydown={handleSpeakerKeydown}
+          />
+          <button type="button" class="add-speaker-btn" onclick={addSpeaker} disabled={!speakersInput.trim()}>
+            Ekle
+          </button>
+        </div>
+        {#if session.speakers && session.speakers.length > 0}
+          <div class="speakers-list">
+            {#each session.speakers as speaker, index}
+              <div class="speaker-tag">
+                <span>{speaker}</span>
+                <button type="button" class="remove-speaker-btn" onclick={() => removeSpeaker(index)}>×</button>
+              </div>
+            {/each}
+          </div>
+        {/if}
+        <small class="form-hint">Konuşmacı adını girin ve "Ekle" butonuna tıklayın</small>
       </div>
       
       <div class="form-grid">
@@ -538,6 +597,95 @@
     transition: all 0.2s;
     background: white;
     box-sizing: border-box;
+  }
+  
+  .form-hint {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 12px;
+    color: #a1a1a1;
+  }
+  
+  .speakers-input-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .speakers-input-group input {
+    flex: 1;
+  }
+  
+  .add-speaker-btn {
+    padding: 0.625rem 1.25rem;
+    background: #4a63ff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  
+  .add-speaker-btn:hover:not(:disabled) {
+    background: #3a53ef;
+  }
+  
+  .add-speaker-btn:disabled {
+    background: #e0e0e0;
+    color: #a1a1a1;
+    cursor: not-allowed;
+  }
+  
+  .speakers-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    padding: 0.75rem;
+    background: #f5f5f5;
+    border-radius: 8px;
+    min-height: 40px;
+  }
+  
+  .speaker-tag {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 16px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  
+  .speaker-tag span {
+    color: #1a1a1a;
+  }
+  
+  .remove-speaker-btn {
+    background: transparent;
+    border: none;
+    color: #c62828;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+  }
+  
+  .remove-speaker-btn:hover {
+    background: #ffebee;
+    color: #b71c1c;
   }
   
   input:focus,
