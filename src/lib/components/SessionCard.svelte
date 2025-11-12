@@ -179,7 +179,9 @@
       padding 0.4s ease;
   }
   .session.active .collapse {
-    max-height: 2048px;
+    max-height: 800px;
+    display: flex;
+    flex-direction: column;
     padding-top: 16px;
   }
   .session.active .play-btn {
@@ -216,6 +218,7 @@
     line-height: 25px;
     margin-top: 16px;
     font-weight: 400;
+    overflow-y: auto;
   }
   .summary strong {
     font-weight: 600;
