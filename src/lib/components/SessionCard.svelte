@@ -179,7 +179,7 @@
       padding 0.4s ease;
   }
   .session.active .collapse {
-    max-height: 500px;
+    max-height: 1024px;
     padding-top: 16px;
   }
   .session.active .play-btn {

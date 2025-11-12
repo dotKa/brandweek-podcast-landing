@@ -29,6 +29,9 @@ RUN npm ci --only=production && npm cache clean --force
 # Build output'unu builder stage'den kopyala
 COPY --from=builder /app/build ./build
 
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV BODY_SIZE_LIMIT=536870912
 # /app/data klasörünü oluştur ve sessions.json dosyasını oraya kopyala
 RUN mkdir -p /app/data
 # Builder stage'den hazırlanmış sessions.json dosyasını kopyala
