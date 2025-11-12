@@ -30,6 +30,43 @@
   });
   
   /**
+   * Dosyayı 5 MB'lık chunklara böl (S3 minimum part size)
+   */
+  function splitFileIntoChunks(file, chunkSize = 5 * 1024 * 1024) {
+    const chunks = [];
+    let offset = 0;
+    let chunkNumber = 1;
+    
+    while (offset < file.size) {
+      const chunk = file.slice(offset, offset + chunkSize);
+      chunks.push({ chunk, chunkNumber });
+      offset += chunkSize;
+      chunkNumber++;
+    }
+    
+    return chunks;
+  }
+  
+  /**
+   * Chunk'ı base64'e çevir
+   */
+  function chunkToBase64(chunk) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result;
+        if (!result || typeof result !== 'string') {
+          reject(new Error('Chunk okunamadı'));
+          return;
+        }
+        resolve(result);
+      };
+      reader.onerror = () => reject(new Error('Chunk okuma hatası'));
+      reader.readAsDataURL(chunk);
+    });
+  }
+  
+  /**
    * @param {Event} event
    */
   async function handleFileUpload(event) {
@@ -42,21 +79,6 @@
     uploadProgress = 0;
     
     try {
-      // Dosyayı base64'e çevir
-      const base64Data = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const result = e.target?.result;
-          if (!result || typeof result !== 'string') {
-            reject(new Error('Dosya okunamadı'));
-            return;
-          }
-          resolve(result);
-        };
-        reader.onerror = () => reject(new Error('Dosya okuma hatası'));
-        reader.readAsDataURL(file);
-      });
-      
       // MIME type'ı belirle
       const mimeType = file.type || 'audio/mpeg';
       
@@ -65,35 +87,176 @@
       const fileExtension = file.name.split('.').pop() || 'mp3';
       const fileName = `session-${timestamp}.${fileExtension}`;
       
-      uploadProgress = 10; // Dosya okundu
+      const MIN_CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB (S3 minimum part size)
       
-      // Upload endpoint'ine gönder
-      const response = await fetch('/api/upload', {
+      // Eğer dosya 5 MB'dan küçükse, normal upload kullan
+      if (file.size < MIN_CHUNK_SIZE) {
+        uploadProgress = 10;
+        
+        // Dosyayı base64'e çevir
+        const base64Data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const result = e.target?.result;
+            if (!result || typeof result !== 'string') {
+              reject(new Error('Dosya okunamadı'));
+              return;
+            }
+            resolve(result);
+          };
+          reader.onerror = () => reject(new Error('Dosya okuma hatası'));
+          reader.readAsDataURL(file);
+        });
+        
+        uploadProgress = 30;
+        
+        // Normal upload endpoint'ine gönder
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            base64Data,
+            mimeType,
+            fileName
+          })
+        });
+        
+        uploadProgress = 90;
+        
+        if (!response.ok) {
+          let errorMessage = 'Upload başarısız';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorData.error || errorMessage;
+          } catch {
+            errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          }
+          throw new Error(errorMessage);
+        }
+        
+        const result = await response.json();
+        
+        if (!result.url) {
+          throw new Error('Upload başarılı ancak URL alınamadı');
+        }
+        
+        session.audioUrl = result.url;
+        uploadProgress = 100;
+        
+        // Progress'i sıfırla
+        setTimeout(() => {
+          uploading = false;
+          uploadProgress = 0;
+        }, 2000);
+        
+        return;
+      }
+      
+      // Büyük dosyalar için multipart upload
+      // Dosyayı chunklara böl (S3 minimum part size: 5 MB)
+      const chunks = splitFileIntoChunks(file, MIN_CHUNK_SIZE);
+      const totalChunks = chunks.length;
+      
+      console.log(`[Upload] Dosya ${chunks.length} chunk'a bölündü (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+      
+      // 1. Multipart upload başlat
+      uploadProgress = 5;
+      const initResponse = await fetch('/api/upload/init', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          base64Data,
-          mimeType,
-          fileName
+          fileName,
+          mimeType
         })
       });
       
-      uploadProgress = 50; // Request gönderildi
-      
-      if (!response.ok) {
-        let errorMessage = 'Upload başarısız';
+      if (!initResponse.ok) {
+        let errorMessage = 'Upload başlatılamadı';
         try {
-          const errorData = await response.json();
+          const errorData = await initResponse.json();
           errorMessage = errorData.message || errorData.error || errorMessage;
         } catch {
-          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          errorMessage = `HTTP ${initResponse.status}: ${initResponse.statusText}`;
         }
         throw new Error(errorMessage);
       }
       
-      const result = await response.json();
+      const { uploadId } = await initResponse.json();
+      uploadProgress = 10;
+      
+      // 2. Her chunk'ı sırayla yükle
+      const parts = [];
+      for (let i = 0; i < chunks.length; i++) {
+        const { chunk, chunkNumber } = chunks[i];
+        
+        // Chunk'ı base64'e çevir
+        const chunkBase64 = await chunkToBase64(chunk);
+        
+        // Chunk'ı yükle
+        const chunkResponse = await fetch('/api/upload/chunk', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            uploadId,
+            partNumber: chunkNumber,
+            chunkBase64,
+            fileName
+          })
+        });
+        
+        if (!chunkResponse.ok) {
+          let errorMessage = `Chunk ${chunkNumber} yüklenemedi`;
+          try {
+            const errorData = await chunkResponse.json();
+            errorMessage = errorData.message || errorData.error || errorMessage;
+          } catch {
+            errorMessage = `HTTP ${chunkResponse.status}: ${chunkResponse.statusText}`;
+          }
+          throw new Error(errorMessage);
+        }
+        
+        const { etag } = await chunkResponse.json();
+        parts.push({ etag, partNumber: chunkNumber });
+        
+        // Progress'i güncelle (10% init, 85% chunks, 5% complete)
+        const chunkProgress = 10 + ((i + 1) / totalChunks) * 85;
+        uploadProgress = Math.min(chunkProgress, 95);
+        
+        console.log(`[Upload] Chunk ${chunkNumber}/${totalChunks} yüklendi (${uploadProgress.toFixed(1)}%)`);
+      }
+      
+      // 3. Upload'ı tamamla
+      uploadProgress = 98;
+      const completeResponse = await fetch('/api/upload/complete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          uploadId,
+          parts,
+          fileName
+        })
+      });
+      
+      if (!completeResponse.ok) {
+        let errorMessage = 'Upload tamamlanamadı';
+        try {
+          const errorData = await completeResponse.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch {
+          errorMessage = `HTTP ${completeResponse.status}: ${completeResponse.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+      
+      const result = await completeResponse.json();
       
       if (!result.url) {
         throw new Error('Upload başarılı ancak URL alınamadı');
@@ -109,6 +272,7 @@
       }, 2000);
     } catch (err) {
       uploading = false;
+      uploadProgress = 0;
       uploadError = err instanceof Error ? err.message : 'Dosya yüklenirken hata oluştu';
       console.error('Upload error:', err);
     }
